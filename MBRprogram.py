@@ -42,7 +42,7 @@ while True:
         print("partition [1]", *hex_data[446:462])
         print("partition [2]", *hex_data[462:478])
         print("partition [3]", *hex_data[478:494])
-        print("partition [4]", *hex_data[494:510])
+        # print("partition [4]", *hex_data[494:510])
         
         start_lba = hex_data[502:506]
         start_lba.reverse()
@@ -51,10 +51,27 @@ while True:
         data = mbr.read(512)
         hex_data = ["%02x" % b for b in data]
         
-        print("partition [5]", *hex_data[446:462])
-        print("partition [6]", *hex_data[462:478])
+        print("partition [4]", *hex_data[446:462])
+        #print("partition [5]", *hex_data[462:478])
+        
+        start_lba = hex_data[470:474]
+        start_lba.reverse()
+        selectlba = intlba + int("".join(start_lba), 16)
+        mbr.seek(selectlba*512, 0)
+        data = mbr.read(512)
+        hex_data = ["%02x" % b for b in data]
 
-        print(*hex_data[454:458])
+        print("partition [5]", *hex_data[446:462])
+        #print("partition [6]", *hex_data[462:478])
+
+        start_lba = hex_data[470:474]
+        start_lba.reverse()
+        selectlba = intlba + int("".join(start_lba), 16)
+        mbr.seek(selectlba*512, 0)
+        data = mbr.read(512)
+        hex_data = ["%02x" % b for b in data]
+
+        print("partition [6]", *hex_data[446:462])
         
     elif mode == 0:
         sys.exit()
