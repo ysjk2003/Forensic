@@ -43,6 +43,7 @@ while True:
         j = 0
         int_lba = 0
         partition = []
+        select_lba = 0
         while finish:
             if not partition:
                 partition.append(hex_data[i*16:i*16+16])
@@ -53,18 +54,23 @@ while True:
                     partition.remove(partition[j])
                     start_lba = hex_data[i*16+8:i*16+12]
                     start_lba.reverse()
-                    int_lba = int_lba + int("".join(start_lba), 16)
-                    mbr.seek(int_lba*512, 0)
+                    if int_lba == 0:
+                        int_lba = int("".join(start_lba), 16)
+                        mbr.seek(int_lba*512, 0)
+                    else:
+                        select_lba = int_lba + int("".join(start_lba), 16)
+                        mbr.seek(select_lba*512, 0)
                     data = mbr.read(512)
                     hex_data = ["%02x" % b for b in data[446:510]]
                     i = 0
                     partition.append(hex_data[i*16:i*16+16])
                     print("partition ["+str(j+1)+"]", *hex_data[0:16])
                 else:
+                    if ''.join(partition[j][0:16]) == '00000000000000000000000000000000':
+                        finish = False
+                        break
                     print("partition ["+str(j+1)+"]", *partition[j][0:16])
             i = i + 1
-            if ''.join(partition[j]) == '00000000000000000000000000000000':
-                finish = False
             j = j + 1
     
     elif mode == 0:
