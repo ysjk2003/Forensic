@@ -37,42 +37,36 @@ while True:
     elif mode == 3:
         mbr = openFile()
         data = mbr.read(512)
-        hex_data = ["%02x" % b for b in data]
-        
-        print("partition [1]", *hex_data[446:462])
-        print("partition [2]", *hex_data[462:478])
-        print("partition [3]", *hex_data[478:494])
-        # print("partition [4]", *hex_data[494:510])
-        
-        start_lba = hex_data[502:506]
-        start_lba.reverse()
-        intlba = int("".join(start_lba), 16)
-        mbr.seek(intlba*512, 0)
-        data = mbr.read(512)
-        hex_data = ["%02x" % b for b in data]
-        
-        print("partition [4]", *hex_data[446:462])
-        #print("partition [5]", *hex_data[462:478])
-        
-        start_lba = hex_data[470:474]
-        start_lba.reverse()
-        selectlba = intlba + int("".join(start_lba), 16)
-        mbr.seek(selectlba*512, 0)
-        data = mbr.read(512)
-        hex_data = ["%02x" % b for b in data]
-
-        print("partition [5]", *hex_data[446:462])
-        #print("partition [6]", *hex_data[462:478])
-
-        start_lba = hex_data[470:474]
-        start_lba.reverse()
-        selectlba = intlba + int("".join(start_lba), 16)
-        mbr.seek(selectlba*512, 0)
-        data = mbr.read(512)
-        hex_data = ["%02x" % b for b in data]
-
-        print("partition [6]", *hex_data[446:462])
-        
+        hex_data = ["%02x" % b for b in data[446:510]]
+        finish = True
+        i = 0
+        j = 0
+        int_lba = 0
+        partition = []
+        while finish:
+            if not partition:
+                partition.append(hex_data[i*16:i*16+16])
+                print("partition ["+str(j+1)+"]", *partition[j][0:16])
+            else:
+                partition.append(hex_data[i*16:i*16+16])
+                if partition[j][4] == '05':
+                    partition.remove(partition[j])
+                    start_lba = hex_data[i*16+8:i*16+12]
+                    start_lba.reverse()
+                    int_lba = int_lba + int("".join(start_lba), 16)
+                    mbr.seek(int_lba*512, 0)
+                    data = mbr.read(512)
+                    hex_data = ["%02x" % b for b in data[446:510]]
+                    i = 0
+                    partition.append(hex_data[i*16:i*16+16])
+                    print("partition ["+str(j+1)+"]", *hex_data[0:16])
+                else:
+                    print("partition ["+str(j+1)+"]", *partition[j][0:16])
+            i = i + 1
+            if ''.join(partition[j]) == '00000000000000000000000000000000':
+                finish = False
+            j = j + 1
+    
     elif mode == 0:
         sys.exit()
     else:
