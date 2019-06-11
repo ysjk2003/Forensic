@@ -63,8 +63,24 @@ def lba_Start():
         LBA_start = lba_list[i-3] + int(''.join(LBA_start), 16)
     return LBA_start
 
+def get_Time(byte_array):
+    time = "{0:8b}".format(int(''.join(reversed(byte_array[:2])),16))
+    if len(time) != 16:
+        zero = str(0*(16-len(time)))
+        time = zero+time
+    time_string = str(int(time[0:5], 2)) + "시" + str(int(time[5:11], 2)) + "분" + str(int(time[11:], 2)*2) + "초"
+    return time_string
+
+def get_Date(byte_array):
+    date = "{0:8b}".format(int(''.join(reversed(byte_array[:2])), 16))
+    if len(date) != 16:
+        zero = str(0*(16-len(date)))
+        date = zero+date
+    date_string = str(int(date[:7], 2)+1980) + "년" + str(int(date[7:11], 2)) + "월" + str(int(date[11:], 2)) + "일"
+    return date_string
+
 while True:
-    mode = int(input("메뉴 선택 : \n 0.종료 \n 1.파일 경로 \n 2.섹터 정보 \n 3.파티션 정보 \n 4.FAT32 정보 \n"))
+    mode = int(input("메뉴 선택 : \n 0.종료 \n 1.파일 경로 \n 2.섹터 정보 \n 3.파티션 정보 \n 4.FAT32 정보 \n 5.파일정보 보기\n"))
 
     if mode == 1:
         FILE_NAME = input("파일 경로 입력 \n")
@@ -132,6 +148,47 @@ while True:
                 print("FAT#1 start", FAT1_start)
                 print("FAT#2 start", FAT2_start)
                 print("Root Directory Start", Root_Directory_Start, "\n")
+
+    elif mode == 5:
+        mbr = openFile()
+        mbr.seek(8320*512, 0)
+        data = mbr.read(512)
+        hex_data = ["%02x" % b for b in data]
+
+        print("Partition [1]-----------------")
+
+        for i in range(0, 15):
+            file_data = hex_data[i*32:i*32+32]
+            if file_data[11] == '08':
+                print("Volum Label")
+                print(" Volum name:", bytes.fromhex(''.join(file_data[0:7])).decode('euc-kr'))
+                print(" Last Written Time:", get_Time(file_data[22:24]))
+                print(" Last Written Date:", get_Date(file_data[24:26]))
+                print("\n")
+
+            elif file_data[11] == '20' or file_data[11] == "16":
+                if file_data[11] == '20':
+                    delete = ""
+                    if file_data[0] == 'e5':
+                        delete = "Delete "
+                    print(delete + "Archive")
+                elif file_data[11] == '16':
+                    print("Directory")
+                print(" name:", ''.join(list(chr(x) for x in list(int(x, 16) for x in file_data[0:11]))))
+                print(" Create Time:", get_Time(file_data[14:16]))
+                print(" Create Date:", get_Date(file_data[16:18]))
+                print(" Last Written Time:", get_Time(file_data[22:24]))
+                print(" Last Written Date:", get_Date(file_data[24:26]))
+                print(" Last Accessed Date:", get_Date(file_data[18:20]))
+                print(" Size:", int(''.join(reversed(file_data[28:])), 16))
+                print("\n")
+
+            elif file_data[11] == '0f':
+                delete = ""
+                if file_data[0] == 'e5':
+                    delete = "Delete "
+                print(delete + "Long File Name")
+                print("\n")
 
     elif mode == 0:
         sys.exit()
