@@ -51,7 +51,32 @@ def partition_Info():
         j = j + 1
     return partition, lba_list
 
-def lba_Start():
+def fat32_Info():
+    partition, lba_list = partition_Info()
+    Reversed_Sector_Count = []
+    FAT_size = []
+    FAT1_start = []
+    FAT2_start = []
+    Root_Directory_Start = []
+    Sector_Per_Cluster = []
+    for i in range(0, len(partition)):
+        mbr = openFile()
+        if partition[i][4] == "0c":
+            LBA_start = lba_Start(i)
+            
+            mbr.seek(LBA_start*512, 0)
+            data = mbr.read(512)
+            hex_data = ["%02x" % b for b in data]
+            
+            Reversed_Sector_Count.append(int(''.join(reversed(hex_data[14:16])), 16))
+            FAT_size.append(int(''.join(reversed(hex_data[36:40])), 16))
+            FAT1_start.append(LBA_start+Reversed_Sector_Count[i])
+            FAT2_start.append(FAT1_start[i] + FAT_size[i])
+            Root_Directory_Start.append(FAT2_start[i] + FAT_size[i])
+            Sector_Per_Cluster.append(int(''.join(hex_data[13])))
+    return Reversed_Sector_Count, FAT1_start, FAT2_start, FAT_size, Root_Directory_Start, Sector_Per_Cluster
+
+def lba_Start(i):
     partition, lba_list = partition_Info()
     if i < 3:
         LBA_start = partition[i][8:12]
@@ -110,7 +135,7 @@ while True:
         for i in range(0, len(partition)):
             CHS_start = reversed(partition[i][1:4])
             CHS_end = reversed(partition[i][5:8])
-            LBA_start = lba_Start()
+            LBA_start = lba_Start(i)
 
             print("partition ["+str(i+1)+"]", *partition[i][0:16])
             print("Boot Flag", int(partition[i][0]))
@@ -123,72 +148,73 @@ while True:
 
     elif mode == 4:
         partition, lba_list = partition_Info()
+        Reversed_Sector_Count, FAT1_start, FAT2_start, FAT_size, Root_Directory_Start, Sector_Per_Cluster = fat32_Info()
         for i in range(0, len(partition)):
             mbr = openFile()
             if partition[i][4] == "0c":
-                LBA_start = lba_Start()
+                LBA_start = lba_Start(i)
                 
                 mbr.seek(LBA_start*512, 0)
                 data = mbr.read(512)
                 hex_data = ["%02x" % b for b in data]
                 
-                Reversed_Sector_Count = int(''.join(reversed(hex_data[14:16])), 16)
-                FAT_size = int(''.join(reversed(hex_data[36:40])), 16)
-                FAT1_start = LBA_start+Reversed_Sector_Count
-                FAT2_start = FAT1_start + FAT_size
-                Root_Directory_Start = FAT2_start + FAT_size
-                
                 print("Partition ["+str(i+1)+"]--------------------")
                 print("Byte Per Sector", int(''.join(reversed(hex_data[11:13])), 16))
-                print("Sector Per Cluster", int(''.join(hex_data[13])))
-                print("Reversed Sector Count", Reversed_Sector_Count)
+                print("Sector Per Cluster", Sector_Per_Cluster[i])
+                print("Reversed Sector Count", Reversed_Sector_Count[i])
                 print("Total sector FAT32", int(''.join(reversed(hex_data[32:36])), 16))
-                print("FAT Size 32", FAT_size, "\n")
+                print("FAT Size 32", FAT_size[i], "\n")
                 print("VBR start", LBA_start)
-                print("FAT#1 start", FAT1_start)
-                print("FAT#2 start", FAT2_start)
-                print("Root Directory Start", Root_Directory_Start, "\n")
+                print("FAT#1 start", FAT1_start[i])
+                print("FAT#2 start", FAT2_start[i])
+                print("Root Directory Start", Root_Directory_Start[i], "\n")
 
     elif mode == 5:
         mbr = openFile()
-        mbr.seek(8320*512, 0)
-        data = mbr.read(512)
-        hex_data = ["%02x" % b for b in data]
+        Reversed_Sector_Count, FAT1_start, FAT2_start, FAT_size, Root_Directory_Start, Sector_Per_Cluster = fat32_Info()
+        partition, lba_list = partition_Info()
+        j = 1
+        for i in Root_Directory_Start:
+            mbr.seek(i*512, 0)
+            data = mbr.read(512)
+            hex_data = ["%02x" % b for b in data]
 
-        print("Partition [1]-----------------")
+            print("Partition [", j,"]-----------------")
 
-        for i in range(0, 15):
-            file_data = hex_data[i*32:i*32+32]
-            if file_data[11] == '08':
-                print("Volum Label")
-                print(" Volum name:", bytes.fromhex(''.join(file_data[0:7])).decode('euc-kr'))
-                print(" Last Written Time:", get_Time(file_data[22:24]))
-                print(" Last Written Date:", get_Date(file_data[24:26]))
-                print("\n")
+            for i in range(0, 15):
+                file_data = hex_data[i*32:i*32+32]
+                if file_data[11] == '08':
+                    print("Volum Label")
+                    print(" Volum name:", bytes.fromhex(''.join(file_data[0:11])).decode('euc-kr'))
+                    print(" Last Written Time:", get_Time(file_data[22:24]))
+                    print(" Last Written Date:", get_Date(file_data[24:26]))
+                    print("\n")
 
-            elif file_data[11] == '20' or file_data[11] == "16":
-                if file_data[11] == '20':
+                elif file_data[11] == '20' or file_data[11] == "16":
+                    if file_data[11] == '20':
+                        delete = ""
+                        if file_data[0] == 'e5':
+                            delete = "Delete "
+                        print(delete + "Archive")
+                    elif file_data[11] == '16':
+                        print("Directory")
+                    print(" name:", ''.join(list(chr(x) for x in list(int(x, 16) for x in file_data[0:11]))))
+                    print(" Create Time:", get_Time(file_data[14:16]))
+                    print(" Create Date:", get_Date(file_data[16:18]))
+                    print(" Last Written Time:", get_Time(file_data[22:24]))
+                    print(" Last Written Date:", get_Date(file_data[24:26]))
+                    print(" Last Accessed Date:", get_Date(file_data[18:20]))
+                    print(" Size:", int(''.join(reversed(file_data[28:])), 16))
+                    print(" 파일 데이터 섹터 위치:", (int(''.join(reversed(file_data[20:22])), 16) + int(''.join(reversed(file_data[26:28])), 16) - 2) * Sector_Per_Cluster[j-1] + Root_Directory_Start[j-1])
+                    print("\n")
+
+                elif file_data[11] == '0f':
                     delete = ""
                     if file_data[0] == 'e5':
                         delete = "Delete "
-                    print(delete + "Archive")
-                elif file_data[11] == '16':
-                    print("Directory")
-                print(" name:", ''.join(list(chr(x) for x in list(int(x, 16) for x in file_data[0:11]))))
-                print(" Create Time:", get_Time(file_data[14:16]))
-                print(" Create Date:", get_Date(file_data[16:18]))
-                print(" Last Written Time:", get_Time(file_data[22:24]))
-                print(" Last Written Date:", get_Date(file_data[24:26]))
-                print(" Last Accessed Date:", get_Date(file_data[18:20]))
-                print(" Size:", int(''.join(reversed(file_data[28:])), 16))
-                print("\n")
-
-            elif file_data[11] == '0f':
-                delete = ""
-                if file_data[0] == 'e5':
-                    delete = "Delete "
-                print(delete + "Long File Name")
-                print("\n")
+                    print(delete + "Long File Name")
+                    print("\n")
+            j = j + 1
 
     elif mode == 0:
         sys.exit()
