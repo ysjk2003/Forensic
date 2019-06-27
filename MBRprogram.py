@@ -105,7 +105,7 @@ def get_Date(byte_array):
     return date_string
 
 while True:
-    mode = int(input("메뉴 선택 : \n 0.종료 \n 1.파일 경로 \n 2.섹터 정보 \n 3.파티션 정보 \n 4.FAT32 정보 \n 5.파일정보 보기\n"))
+    mode = int(input("메뉴 선택 : \n 0.종료 \n 1.파일 경로 \n 2.섹터 정보 \n 3.파티션 정보 \n 4.FAT32 정보 \n 5.파일정보 보기\n 6.파일 복구\n"))
 
     if mode == 1:
         FILE_NAME = input("파일 경로 입력 \n")
@@ -215,6 +215,20 @@ while True:
                     print(delete + "Long File Name")
                     print("\n")
             j = j + 1
+
+    elif mode == 6:
+        mbr = openFile()
+        file_addr = int(input("파일 데이터 위치"))
+        file_size = int(input("파일 사이즈"))
+        file_name = input("파일 이름")
+
+        mbr.seek(file_addr*512)
+
+        data = mbr.read(file_size)
+
+        f = open('./'+file_name, 'wb')
+        f.write(data)
+        f.close()
 
     elif mode == 0:
         sys.exit()
